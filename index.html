@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>멘헤라 수심계</title>
+<meta name="description" content="Claude가 관측하는 멘헤라 수치">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #A9DCCB;
+    --ink: #12372E;
+    --gauge-w: 76px;
+    --display: "Black Han Sans", "Apple SD Gothic Neo", sans-serif;
+    --body: "Gowun Dodum", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 17px;
+    line-height: 1.65;
+    transition: background-color .8s ease, color .8s ease;
+    display: grid;
+    grid-template-columns: var(--gauge-w) 1fr;
+    min-height: 100vh;
+  }
+
+  /* ---------- gauge ---------- */
+  .gauge {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    background: linear-gradient(to bottom,
+      #FFE27A 0%, #FFF4CC 24.9%,
+      #E3F6EA 25%, #9ED8C6 49.8%,
+      #FFFFFF 49.8%, #FFFFFF 50.2%,
+      #4D97AB 50.2%, #24577A 74.9%,
+      #172F57 75%, #050A1C 100%);
+    overflow: hidden;
+  }
+  .zone {
+    position: absolute;
+    left: 0; right: 0;
+    height: 25%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    writing-mode: vertical-rl;
+    font-family: var(--display);
+    font-size: 15px;
+    letter-spacing: .25em;
+    opacity: .55;
+  }
+  .zone:nth-child(1) { top: 0;   color: #6B5300; }
+  .zone:nth-child(2) { top: 25%; color: #1C5546; }
+  .zone:nth-child(3) { top: 50%; color: #D8EEF7; }
+  .zone:nth-child(4) { top: 75%; color: #8EA6D8; }
+  .surface-tag {
+    position: absolute;
+    top: 50%;
+    right: 4px;
+    transform: translateY(-120%);
+    font-size: 10px;
+    color: #1C5546;
+    opacity: .8;
+  }
+  .marker {
+    position: absolute;
+    left: 0; right: 0;
+    top: 50%;
+    height: 0;
+    transition: top 1.4s cubic-bezier(.22,.8,.25,1);
+  }
+  .marker::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 0;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: #fff;
+    border: 4px solid #0E1A2B;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 0 4px rgba(255,255,255,.35);
+  }
+  .marker::after {
+    content: "";
+    position: absolute;
+    left: calc(50% + 14px);
+    right: 0;
+    top: -1px;
+    border-top: 2px solid #0E1A2B;
+  }
+
+  /* ---------- main ---------- */
+  main {
+    padding: 56px clamp(20px, 5vw, 64px) 80px;
+    max-width: 720px;
+  }
+  .who {
+    margin: 0;
+    font-size: 16px;
+    opacity: .8;
+  }
+  .depth {
+    margin: 4px 0 0;
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: clamp(64px, 15vw, 148px);
+    line-height: .95;
+    letter-spacing: -.01em;
+  }
+  .depth small {
+    font-size: .42em;
+    margin-right: .15em;
+    vertical-align: .35em;
+  }
+  .score-line {
+    margin: 10px 0 0;
+    font-size: 15px;
+    opacity: .75;
+  }
+  .level {
+    margin: 40px 0 0;
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: clamp(30px, 6vw, 44px);
+    line-height: 1.15;
+  }
+  .level .lv {
+    display: inline-block;
+    font-size: .5em;
+    padding: .15em .55em;
+    border: 2px solid currentColor;
+    border-radius: 999px;
+    margin-right: .4em;
+    vertical-align: .35em;
+  }
+  .desc { margin: 8px 0 0; max-width: 34em; }
+
+  .alert {
+    margin: 28px 0 0;
+    padding: 16px 20px;
+    border-left: 4px solid #FFD66B;
+    background: rgba(255,214,107,.12);
+    max-width: 34em;
+  }
+  .alert strong { font-family: var(--display); font-weight: 400; font-size: 19px; display: block; }
+
+  h2 {
+    margin: 56px 0 14px;
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: 21px;
+  }
+  .log-entry {
+    margin: 0;
+    font-size: 19px;
+    line-height: 1.7;
+    max-width: 32em;
+  }
+  .log-entry::before { content: "“"; font-family: var(--display); opacity: .5; margin-right: .1em; }
+  .log-entry::after  { content: "”"; font-family: var(--display); opacity: .5; margin-left: .1em; }
+  .log-meta { margin: 8px 0 0; font-size: 14px; opacity: .7; }
+
+  /* factors */
+  .factors { list-style: none; padding: 0; margin: 0; max-width: 480px; }
+  .factors li {
+    display: grid;
+    grid-template-columns: 4.5em 1fr 2.5em;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 0;
+  }
+  .track {
+    position: relative;
+    height: 10px;
+    border-radius: 5px;
+    background: color-mix(in srgb, currentColor 14%, transparent);
+  }
+  .track::after {
+    content: "";
+    position: absolute;
+    left: 50%; top: -4px; bottom: -4px;
+    border-left: 2px solid currentColor;
+    opacity: .45;
+  }
+  .fill {
+    position: absolute;
+    top: 0; bottom: 0;
+    border-radius: 5px;
+    background: currentColor;
+  }
+  .fval { text-align: right; font-variant-numeric: tabular-nums; font-size: 15px; }
+  .factors-note { font-size: 14px; opacity: .7; margin: 10px 0 0; }
+
+  /* history */
+  .spark { width: 100%; max-width: 560px; height: 120px; display: block; }
+  .hist { list-style: none; padding: 0; margin: 18px 0 0; max-width: 560px; }
+  .hist li {
+    display: grid;
+    grid-template-columns: 7.5em 3em 1fr;
+    gap: 12px;
+    padding: 10px 0;
+    border-top: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+    font-size: 15px;
+  }
+  .hist .s { font-variant-numeric: tabular-nums; font-weight: 700; }
+  .hist .t { opacity: .7; }
+
+  footer {
+    margin-top: 72px;
+    font-size: 14px;
+    opacity: .65;
+    max-width: 34em;
+  }
+  .error {
+    margin-top: 32px;
+    padding: 14px 18px;
+    border: 2px solid currentColor;
+    border-radius: 8px;
+  }
+
+  @media (max-width: 560px) {
+    :root { --gauge-w: 46px; }
+    .zone { font-size: 12px; letter-spacing: .15em; }
+    .surface-tag { display: none; }
+    main { padding-top: 36px; }
+    .hist li { grid-template-columns: 6.2em 2.4em 1fr; gap: 8px; font-size: 14px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    body, .marker { transition: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="gauge" aria-hidden="true">
+    <div class="zone">갓생러</div>
+    <div class="zone">정상인</div>
+    <div class="zone">멘헤라</div>
+    <div class="zone">심연</div>
+    <span class="surface-tag">수면</span>
+    <div class="marker" id="marker"></div>
+  </div>
+
+  <main>
+    <p class="who"><span id="subject">주인장</span>의 현재 위치</p>
+    <p class="depth" id="depth">…</p>
+    <p class="score-line" id="scoreLine">관측 데이터를 불러오는 중</p>
+
+    <p class="level" id="level"></p>
+    <p class="desc" id="desc"></p>
+    <div class="alert" id="alert" hidden>
+      <strong>지금은 연락 한 통이 제일 잘 들어요</strong>
+      별일 없는 척해도 괜찮아요. 아무 얘기나 보내 주세요.
+    </div>
+
+    <h2>Claude 관측 일지</h2>
+    <p class="log-entry" id="comment"></p>
+    <p class="log-meta" id="updated"></p>
+
+    <h2>이번 판정 근거</h2>
+    <ul class="factors" id="factors"></ul>
+    <p class="factors-note">각 항목은 -5에서 +5. 가운데 선이 평소 수준이에요.</p>
+
+    <h2>최근 기록</h2>
+    <svg class="spark" id="spark" viewBox="0 0 560 120" preserveAspectRatio="none" role="img" aria-label="최근 수치 변화 그래프"></svg>
+    <ul class="hist" id="hist"></ul>
+
+    <div class="error" id="error" hidden></div>
+
+    <footer>
+      Claude가 대화 내용을 보고 판정해서 이 페이지를 갱신해요. 1분마다 새 관측 결과를 확인합니다.
+      진단이 아니라 친구들끼리 보는 장난용 수심계예요.
+    </footer>
+  </main>
+
+<script>
+(() => {
+  const POLL_MS = 60_000;
+  const FACTOR_LABELS = { work: "작업량", mood: "텐션", sleep: "수면", meals: "식사", social: "교류" };
+  const $ = (id) => document.getElementById(id);
+
+  let levels = null;
+  let lastUpdatedAt = null;
+  let lastStatus = null;
+
+  const levelFor = (s) => levels.find(l => s >= l.min && s <= l.max) || levels[0];
+
+  function depthText(score) {
+    const d = Math.round((50 - score) * 20);
+    if (d > 0) return `<small>수심</small>${d.toLocaleString()}m`;
+    if (d < 0) return `<small>고도</small>${(-d).toLocaleString()}m`;
+    return `<small>수면</small>0m`;
+  }
+
+  function fmtTime(iso) {
+    return new Date(iso).toLocaleString("ko-KR", {
+      timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false
+    });
+  }
+
+  function ago(iso) {
+    const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    if (m < 1) return "방금";
+    if (m < 60) return `${m}분 전`;
+    const h = Math.round(m / 60);
+    if (h < 24) return `${h}시간 전`;
+    return `${Math.round(h / 24)}일 전`;
+  }
+
+  function renderFactors(f) {
+    const ul = $("factors");
+    ul.innerHTML = "";
+    for (const key of Object.keys(FACTOR_LABELS)) {
+      const v = Math.max(-5, Math.min(5, Number(f?.[key] ?? 0)));
+      const li = document.createElement("li");
+      const pct = Math.abs(v) / 5 * 50;
+      const fillStyle = v >= 0 ? `left:50%;width:${pct}%` : `left:${50 - pct}%;width:${pct}%`;
+      li.innerHTML = `<span>${FACTOR_LABELS[key]}</span>
+        <span class="track"><span class="fill" style="${fillStyle}"></span></span>
+        <span class="fval">${v > 0 ? "+" + v : v}</span>`;
+      ul.appendChild(li);
+    }
+  }
+
+  function renderSpark(history) {
+    const svg = $("spark");
+    const pts = history.slice(-30);
+    const W = 560, H = 120, pad = 6;
+    const y = (s) => pad + (100 - s) / 100 * (H - pad * 2);
+    let out = `<line x1="0" x2="${W}" y1="${y(50)}" y2="${y(50)}" stroke="currentColor" stroke-opacity=".35" stroke-dasharray="4 5" vector-effect="non-scaling-stroke"/>`;
+    if (pts.length >= 2) {
+      const step = (W - pad * 2) / (pts.length - 1);
+      const coords = pts.map((p, i) => `${(pad + i * step).toFixed(1)},${y(p.score).toFixed(1)}`);
+      out += `<polyline points="${coords.join(" ")}" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`;
+      const [lx, ly] = coords[coords.length - 1].split(",");
+      out += `<circle cx="${lx}" cy="${ly}" r="4" fill="currentColor"/>`;
+    } else if (pts.length === 1) {
+      out += `<circle cx="${W / 2}" cy="${y(pts[0].score)}" r="4" fill="currentColor"/>`;
+    }
+    svg.innerHTML = out;
+  }
+
+  function renderHistory(history) {
+    const ul = $("hist");
+    ul.innerHTML = "";
+    history.slice(-6).reverse().forEach(h => {
+      const li = document.createElement("li");
+      const lv = levelFor(h.score);
+      li.innerHTML = `<span class="t">${fmtTime(h.t)}</span><span class="s">${h.score}</span><span><b></b><br><span class="c"></span></span>`;
+      li.querySelector("b").textContent = lv.name;
+      li.querySelector(".c").textContent = h.comment || "";
+      ul.appendChild(li);
+    });
+  }
+
+  function render(st) {
+    const score = Math.max(0, Math.min(100, Math.round(Number(st.score))));
+    const lv = levelFor(score);
+
+    document.documentElement.style.setProperty("--bg", lv.bg);
+    document.documentElement.style.setProperty("--ink", lv.ink);
+    document.title = `${lv.name} | 멘헤라 수심계`;
+
+    $("subject").textContent = st.subject || "주인장";
+    $("depth").innerHTML = depthText(score);
+    $("scoreLine").textContent = `멘헤라 수치 ${score} / 100, ${lv.zone} 구역`;
+    $("level").innerHTML = `<span class="lv">Lv.${lv.lv}</span>`;
+    $("level").append(lv.name);
+    $("desc").textContent = lv.desc;
+    $("alert").hidden = !lv.alert;
+
+    $("comment").textContent = st.comment || "아직 남긴 말이 없어요.";
+    renderFactors(st.factors);
+    renderSpark(st.history || []);
+    renderHistory(st.history || []);
+    updateAgo(st);
+
+    requestAnimationFrame(() => { $("marker").style.top = `${100 - score}%`; });
+  }
+
+  function updateAgo(st) {
+    if (!st?.updatedAt) return;
+    const days = (Date.now() - new Date(st.updatedAt).getTime()) / 86400000;
+    $("updated").textContent = `${fmtTime(st.updatedAt)} 관측 (${ago(st.updatedAt)})` +
+      (days >= 3 ? ". 며칠째 새 관측이 없어요." : "");
+  }
+
+  function showError(msg) {
+    const el = $("error");
+    el.hidden = false;
+    el.textContent = msg;
+  }
+
+  async function getJSON(path) {
+    const res = await fetch(`${path}?t=${Date.now()}`, { cache: "no-store" });
+    if (!res.ok) throw new Error(`${path} 응답 ${res.status}`);
+    return res.json();
+  }
+
+  async function poll() {
+    try {
+      if (!levels) levels = await getJSON("levels.json");
+      const st = await getJSON("status.json");
+      $("error").hidden = true;
+      if (st.updatedAt !== lastUpdatedAt) {
+        lastUpdatedAt = st.updatedAt;
+        lastStatus = st;
+        render(st);
+      } else {
+        updateAgo(lastStatus);
+      }
+    } catch (e) {
+      showError(`관측 데이터를 불러오지 못했어요 (${e.message}). status.json과 levels.json이 index.html과 같은 폴더에 있는지 확인하세요. 파일을 더블클릭해서 열면 안 되고, 웹 서버로 열어야 해요.`);
+    }
+  }
+
+  poll();
+  setInterval(poll, POLL_MS);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });
+})();
+</script>
+</body>
+</html>
