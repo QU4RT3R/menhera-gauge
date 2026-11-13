@@ -1,5 +1,5 @@
 // 친구들의 한마디: Firebase Firestore에 저장되고, 새 댓글은 새로고침 없이 바로 나타난다.
-import { firebaseConfig } from "./firebase-config.js";
+import { firebaseConfig } from "./firebase-config.js?v=3";
 
 const SDK = "https://www.gstatic.com/firebasejs/12.16.0";
 const COOLDOWN_MS = 20_000;
@@ -65,7 +65,7 @@ async function start() {
       const v = d.data({ serverTimestamps: "estimate" });
       return { name: v.name, text: v.text, date: v.createdAt?.toDate?.() };
     })),
-    () => { msg.textContent = "댓글을 불러오지 못했어요. 잠시 뒤 새로고침해 주세요."; }
+    (err) => { msg.textContent = `댓글을 불러오지 못했어요 (${err?.code || err}).`; console.error(err); }
   );
 
   let lastSent = 0;
@@ -86,12 +86,16 @@ async function start() {
       textEl.value = "";
       msg.textContent = "남겼어요.";
       try { localStorage.setItem(NAME_KEY, name); } catch {}
-    } catch {
-      msg.textContent = "남기지 못했어요. 이름은 20자, 댓글은 200자까지 쓸 수 있어요.";
+    } catch (err) {
+      console.error(err);
+      msg.textContent = `남기지 못했어요 (${err?.code || err}). 이름은 20자, 댓글은 200자까지예요.`;
     } finally {
       sendBtn.disabled = false;
     }
   });
 }
 
-start();
+start().catch((err) => {
+  console.error(err);
+  msg.textContent = `댓글 기능을 불러오지 못했어요 (${err?.code || err?.message || err}).`;
+});
