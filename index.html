@@ -26,8 +26,73 @@
     line-height: 1.65;
     transition: background-color .8s ease, color .8s ease;
     display: grid;
-    grid-template-columns: var(--gauge-w) 1fr;
+    grid-template-columns: var(--gauge-w) minmax(0, 1fr);
     min-height: 100vh;
+  }
+  .gauge { grid-column: 1; grid-row: 1 / span 2; }
+  main { grid-column: 2; grid-row: 1; }
+  .board { grid-column: 2; grid-row: 2; }
+
+  /* ---------- 댓글 ---------- */
+  .board {
+    padding: 0 clamp(20px, 5vw, 64px) 64px;
+    max-width: 720px;
+  }
+  .board h2 { margin-top: 0; }
+  .board-sub { margin: -6px 0 18px; font-size: 14px; opacity: .7; }
+  .cform { display: grid; gap: 10px; }
+  .cform label { font-size: 14px; opacity: .8; display: block; margin-bottom: 4px; }
+  .cform input, .cform textarea {
+    width: 100%;
+    font: inherit;
+    font-size: 16px;
+    color: inherit;
+    background: color-mix(in srgb, currentColor 7%, transparent);
+    border: 2px solid color-mix(in srgb, currentColor 30%, transparent);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .cform textarea { min-height: 84px; resize: vertical; line-height: 1.5; }
+  .cform input:focus-visible, .cform textarea:focus-visible, .cform button:focus-visible {
+    outline: 3px solid currentColor;
+    outline-offset: 2px;
+  }
+  .crow { display: flex; align-items: center; gap: 12px; }
+  .cform button {
+    font-family: var(--display);
+    font-size: 17px;
+    color: var(--bg);
+    background: var(--ink);
+    border: 0;
+    border-radius: 999px;
+    padding: 9px 22px;
+    cursor: pointer;
+  }
+  .cform button:disabled { opacity: .5; cursor: default; }
+  .cmsg { font-size: 14px; opacity: .8; }
+  .clist { list-style: none; padding: 0; margin: 24px 0 0; }
+  .clist li {
+    padding: 12px 0;
+    border-top: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  }
+  .clist .cn { font-weight: 700; }
+  .clist .ct { font-size: 13px; opacity: .65; margin-left: 8px; }
+  .clist p { margin: 2px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .cempty { opacity: .7; font-size: 15px; }
+
+  @media (min-width: 1100px) {
+    body { grid-template-columns: var(--gauge-w) minmax(0, 1fr) 380px; }
+    .gauge { grid-row: 1; }
+    .board {
+      grid-column: 3;
+      grid-row: 1;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      padding: 56px 28px 40px;
+      border-left: 2px solid color-mix(in srgb, currentColor 18%, transparent);
+    }
   }
 
   /* ---------- gauge ---------- */
@@ -280,6 +345,27 @@
     </footer>
   </main>
 
+  <aside class="board" aria-labelledby="boardTitle">
+    <h2 id="boardTitle">친구들의 한마디</h2>
+    <p class="board-sub">로그인 없이 이름만 쓰고 남길 수 있어요. 누구나 볼 수 있어요.</p>
+    <form class="cform" id="cform" novalidate>
+      <div>
+        <label for="cname">이름</label>
+        <input id="cname" name="name" maxlength="20" autocomplete="nickname" required>
+      </div>
+      <div>
+        <label for="ctext">댓글</label>
+        <textarea id="ctext" name="text" maxlength="200" required></textarea>
+      </div>
+      <div class="crow">
+        <button type="submit" id="csend">남기기</button>
+        <span class="cmsg" id="cmsg" role="status"></span>
+      </div>
+    </form>
+    <ul class="clist" id="clist"></ul>
+  </aside>
+
+<script type="module" src="comments.js"></script>
 <script>
 (() => {
   const POLL_MS = 60_000;
