@@ -1,5 +1,5 @@
 // 친구들의 한마디: Firebase Firestore에 저장되고, 새 댓글은 새로고침 없이 바로 나타난다.
-import { firebaseConfig } from "./firebase-config.js?v=3";
+import { firebaseConfig } from "./firebase-config.js?v=4";
 
 const SDK = "https://www.gstatic.com/firebasejs/12.16.0";
 const COOLDOWN_MS = 20_000;
@@ -30,7 +30,7 @@ export function renderComments(items) {
   for (const c of items) {
     const li = document.createElement("li");
     const n = document.createElement("span"); n.className = "cn"; n.textContent = c.name;
-    const t = document.createElement("span"); t.className = "ct"; t.textContent = fmt(c.date);
+    const t = document.createElement("span"); t.className = "ct"; t.textContent = c.pending ? "전송 중" : fmt(c.date);
     const p = document.createElement("p"); p.textContent = c.text;
     li.append(n, t, p);
     list.appendChild(li);
@@ -63,7 +63,7 @@ async function start() {
     query(col, orderBy("createdAt", "desc"), limit(60)),
     (snap) => renderComments(snap.docs.map(d => {
       const v = d.data({ serverTimestamps: "estimate" });
-      return { name: v.name, text: v.text, date: v.createdAt?.toDate?.() };
+      return { name: v.name, text: v.text, date: v.createdAt?.toDate?.(), pending: d.metadata.hasPendingWrites };
     })),
     (err) => { msg.textContent = `댓글을 불러오지 못했어요 (${err?.code || err}).`; console.error(err); }
   );
@@ -81,7 +81,11 @@ async function start() {
     sendBtn.disabled = true;
     msg.textContent = "남기는 중";
     try {
-      await addDoc(col, { name, text, createdAt: serverTimestamp() });
+      const slow = setTimeout(() => {
+        msg.textContent = "서버에 연결이 안 돼요. Firestore 데이터베이스가 만들어졌는지, 광고 차단 확장 프로그램이 막고 있지 않은지 확인해 주세요.";
+      }, 10_000);
+      try { await addDoc(col, { name, text, createdAt: serverTimestamp() }); }
+      finally { clearTimeout(slow); }
       lastSent = Date.now();
       textEl.value = "";
       msg.textContent = "남겼어요.";
