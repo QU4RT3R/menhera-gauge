@@ -1,4 +1,9 @@
-// Firebase 콘솔 → 프로젝트 설정 → 내 앱(웹)에 나오는 firebaseConfig를 그대로 붙여 넣으세요.
-// 이 값은 공개돼도 괜찮은 값이에요. 실제 보호는 Firestore 보안 규칙(firestore.rules)이 해요.
-// null로 두면 댓글창에 "아직 준비 중" 안내가 나와요.
-export const firebaseConfig = null;
+// Firebase 웹 앱 설정. 공개돼도 괜찮은 값이고, 실제 보호는 Firestore 보안 규칙(firestore.rules)이 한다.
+export const firebaseConfig = {
+  apiKey: "AIzaSyBxqkGrdi8c_T6ewUfRHz6KVV_g4sLmeW8",
+  authDomain: "menheragauge.firebaseapp.com",
+  projectId: "menheragauge",
+  storageBucket: "menheragauge.firebasestorage.app",
+  messagingSenderId: "725303960481",
+  appId: "1:725303960481:web:d67dc7faf0861241d521e0"
+};
